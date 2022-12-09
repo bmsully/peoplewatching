@@ -18,7 +18,7 @@ module tether (
     // localparam IPG = 5; // Interpacket gap
     logic [2:0] state;
 
-    logic [7:0] sfd = 8'b11101010;
+    logic [7:0] sfd = 8'b11010101;
 
     logic [63:0] data_buf; // data stored while start of frame sent
     logic reading_data; // check signal to avoid errant data after going low
@@ -118,7 +118,7 @@ module tether (
                     axiod <= {data_buf[data_counter], data_buf[data_counter-1]};
                     data_counter <= data_counter - 2;
                 end else begin
-                    axiod <= fcs_buf[31:30];
+                    axiod <= {fcs_buf[30], fcs_buf[31]};
                     fcs_buf <= {fcs_buf[29:0], fcs_buf[31:30]};
                     data_counter <= 0;
                     cycle_counter <= 0;
@@ -128,7 +128,7 @@ module tether (
             FCS: begin
                 cycle_counter <= cycle_counter + 1;
                 if (cycle_counter < 15) begin
-                    axiod <= fcs_buf[31:30];
+                    axiod <= {fcs_buf[30], fcs_buf[31]};
                     fcs_buf <= {fcs_buf[29:0], fcs_buf[31:30]};
                 end else begin
                     axiov <= 1'b0;

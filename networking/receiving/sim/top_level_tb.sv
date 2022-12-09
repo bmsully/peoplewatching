@@ -29,18 +29,21 @@ module top_level_tb();
     // Bitstream off the wire e.g. preamble[1:0] is the first dibit corresponding to rxd[1:0]
     logic [55:0] preamble = 56'b01010101_01010101_01010101_01010101_01010101_01010101_01010101;
     logic [7:0] sfd = 8'b11101010;
-    logic [47:0] destination = 48'b11111111_11111111_11111111_11111111_11111111_11111111; // broadcast destination
-    logic [47:0] source = 48'b11111101_01110101_00110000_00001000_11000010_10010110; // random source
-    logic [15:0] length = 16'b00010101_00000000; // 21 bytes -> LSB, MSb 
-    logic [167:0] message = 168'h4261_7272_7921_2042_7265_616b_6661_7374_2074_696d65;
-    logic [31:0] checksum = 32'hb57c_0a54;
+    logic [47:0] destination = 48'b01101001_01101001_10100101_10010000_00010101_01000110; // destination in MSB, LSb order
+    logic [47:0] source = 48'b01101001_01101001_10100101_10010000_00010101_00000110; // source in MSB, LSb order
+    logic [15:0] ethertype = 16'b00000001_00000001; // experimental ethertype, MSB, MSb order i.e. h0101
+    // logic [167:0] message = 168'h4261_7272_7921_2042_7265_616b_6661_7374_2074_696d65;
+    logic [31:0] data = 32'hBF7B_BEFB; // MSB, LSb
+    // logic [31:0] checksum = 32'b01101011_01010011_01010110_10100001; // MSB, MSb,LSdb
+    logic [31:0] checksum = 32'b01010111_10100011_10101001_01010010; // MSB, MSb
+    // logic [31:0] checksum = 32'hb57c_0a54;
     // logic [31:0] checksum = 32'h6e24_48c0;
     // logic [31:0] checksum = 32'h00000000;
 
     // logic [31:0] checksum = 32'h0000_0000;
 
     initial begin
-        $dumpfile("top_level.vcd");
+        $dumpfile("r_top_level.vcd");
         $dumpvars(0, top_level_tb);
         $display("Starting Sim");
         clk_in = 0;
@@ -68,47 +71,51 @@ module top_level_tb();
             #20;
         end
         // Destination
-        for (int i = 0; i < 24; i = i + 1) begin
-            rxd_in = 2'b11;
-            #20;
-        end
-        // rxd_in = 2'b00;
-        // #20;
         // for (int i = 0; i < 24; i = i + 1) begin
-        //     rxd_in = 2'b; // insert device address
+        //     rxd_in = 2'b11;
         //     #20;
         // end
-        // Source
+        // rxd_in = 2'b00;
+        // #20;
         for (int i = 0; i < 24; i = i + 1) begin
-            rxd_in = source[1:0]; 
-            source = {source[1:0], source[47:2]};
+            rxd_in = destination[47:46]; 
+            destination = {destination[45:0], destination[47:46]};
             #20;
         end
-        // Length
+        // Source
+        for (int i = 0; i < 24; i = i + 1) begin
+            rxd_in = source[47:46]; 
+            source = {source[45:0], source[47:46]};
+            #20;
+        end
+        // Ethertype
         for (int i = 0; i < 8; i = i + 1) begin
             case (i)
-                5: rxd_in = 2'b01;
-                6: rxd_in = 2'b01;
-                7: rxd_in = 2'b01;
+                0: rxd_in = 2'b01;
+                4: rxd_in = 2'b01;
                 default: rxd_in = 2'b00;
             endcase
             #20;
         end
         // Data - for loop from cksum_tb
         // axiod at this point should be the checksum
-        for (int i = 168; i>0; i = i - 2) begin 
-            rxd_in = {message[i-2], message[i-1]}; 
+        // for (int i = 168; i>0; i = i - 2) begin 
+        //     rxd_in = {message[i-2], message[i-1]}; 
+        //     #20;
+        // end
+        for (int i = 32; i>0; i = i - 2) begin
+            rxd_in = {data[i-1], data[i-2]};
             #20;
         end
         // "xor" the value with itself to get the constant
         for (int i = 32; i>0; i = i - 2) begin
-            rxd_in = {checksum[i-2], checksum[i-1]}; //
+            rxd_in = {checksum[i-1], checksum[i-2]}; //potentially reverse these
             #20;
         end
         crsdv_in = 1'b0;
         rxd_in = 2'b0;
         #20;
-        #100;
+        #200;
         $display("Finishing Sim"); //print nice message
         $finish;
 
