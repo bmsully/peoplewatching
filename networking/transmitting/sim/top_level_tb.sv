@@ -49,6 +49,14 @@ module top_level_tb();
             $display("%2b", eth_txd);
             #20;
         end
+        rst_in = 1;
+        #20;
+        rst_in = 0;
+        #20;
+        for (int i = 0; i < 300; i = i + 1)begin
+            $display("%2b", eth_txd);
+            #20;
+        end
         // axiiv = 1'b1;
         // axiid = 2'b11; // F
         // #20;

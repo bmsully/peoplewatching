@@ -4,6 +4,7 @@
 module top_level (
     input wire clk, //clock @ 100 mhz
     input wire btnc,
+    input wire btnr,
 
     output wire eth_refclk,
     output wire eth_rstn,
@@ -17,29 +18,40 @@ module top_level (
     logic data_transmitted;
     logic [31:0] data = 32'hFEED_BEEF;
     // logic [31:0] data = 32'b11111111_11111111_11111111_11111111;
-    logic [3:0] counter;
+    logic [4:0] counter;
+
+    output_monitor see_the_stuff (.clk(eth_refclk), .probe0(eth_refclk), .probe1(eth_rstn), .probe2(eth_txen), .probe3(eth_txd));
 
     divider eth_clk (.clk(clk), .ethclk(eth_refclk)); // comment out for tb
 
     // ############## ETHERNET TRANSMITTING ENCAPSULATION ##############
     // Data Validity Carriers
-    logic eth_axiiv, identity_axiov, bitorder_out_axiov;
+    logic eth_axiiv, identity_axiov, bitorder_out_axiov, old_btnr;
     // Data Carriers
     logic [1:0] eth_axiid, identity_axiod, bitorder_out_axiod;
 
     always_ff @(posedge eth_refclk) begin // comment out for tb
         // always_ff @(posedge clk) begin // uncomment for tb
         if (sys_rst == 1'b1) begin
-            data_transmitted <= 1'b0;
+            data_transmitted <= 1'b1;
             counter <= 0;
-        end else if (~data_transmitted) begin
-            eth_axiiv <= 1'b1;
-            eth_axiid <= data[31:30];
-            data <= {data[29:0], data[31:30]};
-            counter <= counter + 1;
-            if (counter == 15) begin
-                data_transmitted <= 1'b1;
-            end
+        end
+	old_btnr <= btnr;
+	if (btnr & ~old_btnr) begin
+	    data_transmitted <= 1'b0;
+	    counter <= 0;
+	end
+	if (~data_transmitted) begin
+	    if (counter < 16) begin
+		eth_axiiv <= 1'b1;
+		eth_axiid <= data[31:30];
+		data <= {data[29:0], data[31:30]};
+		counter <= counter + 1;
+	    end else begin
+		eth_axiiv <= 1'b0;
+		eth_axiid <= 2'b0;
+		data_transmitted <= 1'b1;
+	    end
         end else begin
             eth_axiiv <= 1'b0;
             eth_axiid <= 2'b0;
