@@ -16,7 +16,7 @@ module identity (
     // logic [47:0] destination_addr = 48'b01101001_01101001_01011010_00000110_01010100_10010001;
     // Broadcast Address
     logic [47:0] destination_addr = 48'b11111111_11111111_11111111_11111111_11111111_11111111; 
-    logic [15:0] ethertype = 16'b0000001_00000001;
+    logic [15:0] ethertype = 16'b00000001_00000001;
 
     localparam IDLE = 0;
     localparam DEST = 1; // Destination
@@ -52,19 +52,24 @@ module identity (
                     cycle_counter <= 0;
 
                     state <= DEST;
+                end else begin
+                    axiov <= 1'b0;
+                    axiod <= 2'b00;
                 end
             end
             DEST: begin
                 cycle_counter <= cycle_counter + 1;
                 if (cycle_counter < 23) begin // Send destination address
+                    axiov <= 1'b1;
                     axiod <= destination_addr[47:46];
                     destination_addr <= {destination_addr[45:0], destination_addr[47:46]};
-	        end else begin
+	            end else begin
+                    axiov <= 1'b1;
                     axiod <= source_addr[47:46];
                     source_addr <= {source_addr[45:0], source_addr[47:46]};
                     cycle_counter <= 0;
                     state <= SOURCE;
-		end
+		        end
                 if (axiiv == 1'b1 && reading_data == 1'b1) begin
                     data_buf <= {data_buf[109:0], axiid};
                     data_counter <= data_counter + 2;
@@ -72,35 +77,41 @@ module identity (
                     reading_data <= 1'b0;
                 end
             end
-	    SOURCE: begin
-		cycle_counter <= cycle_counter + 1;
-		if (cycle_counter < 23) begin // Send source address
+            SOURCE: begin
+                cycle_counter <= cycle_counter + 1;
+                if (cycle_counter < 23) begin // Send source address
+                    axiov <= 1'b1;
                     axiod <= source_addr[47:46];
                     source_addr <= {source_addr[45:0], source_addr[47:46]};
-		end else begin
+                end else begin
+                    axiov <= 1'b1;
                     axiod <= ethertype[15:14];
                     ethertype <= {ethertype[13:0], ethertype[15:14]};
                     cycle_counter <= 0;
                     state <= ETHER;
-		end
+                end
+
                 if (axiiv == 1'b1 && reading_data == 1'b1) begin
                     data_buf <= {data_buf[109:0], axiid};
                     data_counter <= data_counter + 2;
                 end else begin
                     reading_data <= 1'b0;
                 end
-	    end
-	    ETHER: begin
-		cycle_counter <= cycle_counter + 1;
-		if (cycle_counter < 7) begin // Send ethertype
+            end
+            ETHER: begin
+                cycle_counter <= cycle_counter + 1;
+                if (cycle_counter < 7) begin // Send ethertype
+                    axiov <= 1'b1;
                     axiod <= ethertype[15:14];
                     ethertype <= {ethertype[13:0], ethertype[15:14]};
                 end else begin // Send first data 
                     if (axiiv == 1'b1 && reading_data == 1'b1) begin // still reading
+                        axiov <= 1'b1;
                         axiod <= data_buf[111:110];
                         data_buf <= {data_buf[109:0], axiid};
                         state <= READTRANSMIT;
                     end else begin // no longer reading i.e. static
+                        axiov <= 1'b1;
                         reading_data <= 1'b0;
                         axiod <= {data_buf[data_counter], data_buf[data_counter-1]};
                         data_counter <= data_counter - 2;
@@ -115,12 +126,14 @@ module identity (
                         reading_data <= 1'b0;
                     end
                 end
-	    end
+            end
             READTRANSMIT: begin
                 if (axiiv == 1'b1 && reading_data == 1'b1) begin
+                    axiov <= 1'b1;
                     axiod <= data_buf[111:110];
                     data_buf <= {data_buf[109:0], axiid};
                 end else begin
+                    axiov <= 1'b1;
                     reading_data <= 1'b0;
                     axiod <= {data_buf[data_counter], data_buf[data_counter-1]};
                     data_counter <= data_counter - 2;
@@ -129,6 +142,7 @@ module identity (
             end
             TRANSMIT: begin
                 if (data_counter > 0) begin
+                    axiov <= 1'b1;
                     axiod <= {data_buf[data_counter], data_buf[data_counter-1]};
                     data_counter <= data_counter - 2;
                 end else begin

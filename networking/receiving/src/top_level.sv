@@ -18,7 +18,18 @@ module top_level (
     assign sys_rst = btnc;
     assign eth_rstn = ~btnc; // eth_rstn resets on low signal
 
+    input_monitor receivingwila (.clk(eth_refclk), .probe0(eth_rstn), .probe1(eth_crsdv), .probe2(eth_rxd));
+
     divider eth_clk (.clk(clk), .ethclk(eth_refclk)); // comment out for tb
+    // logic count_bit;
+    // always_ff @(posedge clk) begin
+    //     if (count_bit) begin
+    //         eth_refclk <= ~eth_refclk;
+    //         count_bit <= 1'b0;
+    //     end else begin
+    //         count_bit <= 1'b1;
+    //     end
+    // end
 
     // ############## ETHERNET RECEIVING DE-ENCAPSULATION ##############
     // Data Validity Carriers
@@ -27,12 +38,21 @@ module top_level (
     logic [1:0] eth_axiod, bitorder_axiod, firewall_axiod;
     logic [31:0] aggregate_axiod;
 
+    // assign eth_refclk = clk;
+
+    logic eth_crsdv_pipe;
+    logic [1:0] eth_rxd_pipe;
+    always_ff @(posedge eth_refclk) begin
+        eth_crsdv_pipe <= eth_crsdv;
+        eth_rxd_pipe <= eth_rxd;
+    end
+
     rether ethernet_in (
         .clk(eth_refclk), // comment out for tb
         // .clk(clk), // uncomment for tb
         .rst(sys_rst),
-        .crsdv(eth_crsdv),
-        .rxd(eth_rxd),
+        .crsdv(eth_crsdv_pipe),
+        .rxd(eth_rxd_pipe),
         .axiov(eth_axiov),
         .axiod(eth_axiod)
         );

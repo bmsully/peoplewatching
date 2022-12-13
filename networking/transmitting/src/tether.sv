@@ -23,7 +23,7 @@ module tether (
     logic [63:0] data_buf; // data stored while start of frame sent
     logic reading_data; // check signal to avoid errant data after going low
     int data_counter; // Need to count to 63 (64 bits)
-    logic [4:0] cycle_counter; // Need to count to 32 (cycles)
+    logic [5:0] cycle_counter; // Need to count to 32 (cycles)
 
     logic crcov, checksum_collected;
     logic [31:0] crc_output, fcs_buf;
@@ -59,26 +59,33 @@ module tether (
                     reading_data <= 1'b1;
                     data_counter <= 1;
 
-                    axiod <= 2'b01; // Preamble
+                    axiod <= 2'b01;
                     cycle_counter <= 0;
 
                     state <= PREAMBLESFD;
+                end else begin
+                    axiov <= 1'b0;
+                    axiod <= 2'b00;
                 end
             end
             PREAMBLESFD: begin
                 cycle_counter <= cycle_counter + 1;
-                if (cycle_counter < 27) begin // Send preamble
+                if (cycle_counter < 27) begin // send preamble
+                    axiov <= 1'b1;
                     axiod <= 2'b01; 
                 end else if (cycle_counter >= 27 && cycle_counter < 31) begin // Send sfd
                     // Read LSb
+                    axiov <= 1'b1;
                     axiod <= sfd[1:0];
                     sfd <= {sfd[1:0], sfd[7:2]};
                 end else begin // Send first data
                     if (axiiv == 1'b1 && reading_data == 1'b1) begin // still reading
+                        axiov <= 1'b1;
                         axiod <= data_buf[63:62];
                         data_buf <= {data_buf[61:0], axiid};
                         state <= READTRANSMIT;
-                    end else begin // no longer reading i.e. static
+                    end else begin // no longer reading i.e. static 
+                        axiov <= 1'b1;
                         reading_data <= 1'b0;
                         axiod <= {data_buf[data_counter], data_buf[data_counter-1]};
                         data_counter <= data_counter - 2;
@@ -100,6 +107,7 @@ module tether (
             end
             READTRANSMIT: begin
                 if (axiiv == 1'b1 && reading_data == 1'b1) begin
+                    axiov <= 1'b1;
                     axiod <= data_buf[63:62]; 
                     data_buf <= {data_buf[61:0], axiid}; 
                 end else begin
@@ -107,6 +115,7 @@ module tether (
                         checksum_collected <= 1'b1;
                         fcs_buf <= crc_output;
                     end
+                    axiov <= 1'b1;
                     reading_data <= 1'b0;
                     axiod <= {data_buf[data_counter], data_buf[data_counter-1]};
                     data_counter <= data_counter - 2;
@@ -115,9 +124,11 @@ module tether (
             end
             TRANSMIT: begin
                 if (data_counter > 0) begin
+                    axiov <= 1'b1;
                     axiod <= {data_buf[data_counter], data_buf[data_counter-1]};
                     data_counter <= data_counter - 2;
                 end else begin
+                    axiov <= 1'b1;
                     axiod <= {fcs_buf[31], fcs_buf[30]};
                     fcs_buf <= {fcs_buf[29:0], fcs_buf[31:30]};
                     data_counter <= 0;
@@ -128,10 +139,12 @@ module tether (
             FCS: begin
                 cycle_counter <= cycle_counter + 1;
                 if (cycle_counter < 15) begin
+                    axiov <= 1'b1;
                     axiod <= {fcs_buf[31], fcs_buf[30]};
                     fcs_buf <= {fcs_buf[29:0], fcs_buf[31:30]};
                 end else begin
                     axiov <= 1'b0;
+                    axiod <= 2'b00;
                     manual_rst <= 1'b1;
                     state <= IDLE;
                     // signal to start IPG

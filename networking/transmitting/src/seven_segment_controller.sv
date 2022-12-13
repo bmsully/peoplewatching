@@ -26,7 +26,6 @@ module seven_segment_controller #(parameter COUNT_TO = 'd100_000)
        8'b0010_0000: routed_vals = val_in[23:20];
        8'b0100_0000: routed_vals = val_in[27:24];
        8'b1000_0000: routed_vals = val_in[31:28];
-       default: routed_vals = 4'b0000;
     endcase
   end
   bto7s mbto7s (.x_in(routed_vals), .s_out(led_out));
