@@ -1,0 +1,120 @@
+$date
+	Fri Dec  9 01:03:44 2022
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	1ps
+$end
+$scope module bw_converter_tb $end
+$var wire 10 ! vcount_out [9:0] $end
+$var wire 1 " pixel_out $end
+$var wire 11 # hcount_out [10:0] $end
+$var wire 1 $ data_valid_out $end
+$var reg 1 % clk_in $end
+$var reg 1 & data_valid_in $end
+$var reg 11 ' hcount_in [10:0] $end
+$var reg 16 ( pixel_in [15:0] $end
+$var reg 10 ) vcount_in [9:0] $end
+$scope module uut $end
+$var wire 1 % clk_in $end
+$var wire 1 & data_valid_in $end
+$var wire 11 * hcount_in [10:0] $end
+$var wire 16 + pixel_in [15:0] $end
+$var wire 10 , vcount_in [9:0] $end
+$var wire 5 - r [4:0] $end
+$var wire 6 . g [5:0] $end
+$var wire 5 / b [4:0] $end
+$var reg 1 $ data_valid_out $end
+$var reg 11 0 hcount_out [10:0] $end
+$var reg 1 " pixel_out $end
+$var reg 10 1 vcount_out [9:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+bx 1
+bx 0
+bx /
+bx .
+bx -
+b1000101 ,
+bx +
+b101010 *
+b1000101 )
+bx (
+b101010 '
+0&
+0%
+x$
+bx #
+x"
+bx !
+$end
+#5000
+b1000101 !
+b1000101 1
+b101010 #
+b101010 0
+0$
+0"
+1%
+#10000
+b0 -
+b0 .
+b0 /
+0%
+b0 (
+b0 +
+1&
+#15000
+1$
+1"
+1%
+#20000
+0%
+0&
+#25000
+0$
+1%
+#30000
+0%
+1&
+#35000
+1$
+1%
+#40000
+b11111 -
+b111111 .
+b11111 /
+0%
+b1111111111111111 (
+b1111111111111111 +
+#45000
+0"
+1%
+#50000
+0%
+0&
+#55000
+0$
+1%
+#60000
+0%
+1&
+#65000
+1$
+1%
+#70000
+b0 -
+b0 /
+0%
+b11111100000 (
+b11111100000 +
+#75000
+1"
+1%
+#80000
+0%
