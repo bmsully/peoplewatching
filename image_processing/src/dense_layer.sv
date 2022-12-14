@@ -1,5 +1,5 @@
 
-module dense_layer #(parameter K_SELECT=0)(
+module dense_layer (
   input wire clk_in,
   input wire rst_in,
 
@@ -9,9 +9,8 @@ module dense_layer #(parameter K_SELECT=0)(
   input wire [4:0] vcount_in,
 
   output logic data_valid_out,
-  output logic [20:0] hcount_pred,
-  output logic [20:0] vcount_pred,
-  output logic [4:0] vcount_out
+  output logic [4:0] hcount_pred,
+  output logic [4:0] vcount_pred,
   );
 
     // columns, rows, pixels 
@@ -63,7 +62,7 @@ module dense_layer #(parameter K_SELECT=0)(
   always_ff @(posedge clk_in)begin
     for(int i = 0; i< 48; i+2)begin
       if(element_count == i)begin
-        hcount_pred <= $signed(hcount_pred) + $signed(weights_out[i]) * $signed(pixel_data_in[0]);
+        hcount_pred <= $signed(hcount_pred) + ($signed(weights_out[i]) * $signed(pixel_data_in[0])) ;
         vcount_pred <= $signed(vcount_pred) + $signed(weights_out[i + 1]) * $signed(pixel_data_in[0]);
       end
     end
