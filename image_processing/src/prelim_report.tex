@@ -1,0 +1,64 @@
+\section{Image Processing}
+\begin{figure}[htbp]
+\includegraphics[scale=.3]{ImageProcessingArch.png}
+\caption{Image Processing Architecture}
+\label{fig}
+\end{figure}
+
+The image processing component will take a bitstream of the video of a whiteboard with rectangle(s) drawn on and output the video with detections of said rectangle(s). We want to implement this computer vision via hardware as opposed to software to decrease latency of the processing.
+
+At a high level, the image processing architecture is broken into 3 working parts-- Pre-Neural Network Image Processing, Neural Network, and Display and VGA.
+
+In Pre-Neural Network Image Processing, we need to convert the video into strictly black and white pixels.
+
+In the Neural Network, we have a rolling buffer in order to perform convolution, a frame buffer for the dense layer, and an activation layer.
+
+The output of the neural network will be used to draw bounding boxes and display the results over VGA
+
+\subsection{Neural Network via Python}\label{AA}
+First, the Neural Network was implemented via Python before getting it on hardware. I used matplotlib to generate 50,000 images of black rectangles on white backgrounds. Then I trained a model to detect these rectangles. My sequential model has
+\begin{itemize}
+\item eight convolution layers (15 pixel by 15 pixel)
+\item flatten layer
+\item dropout layer
+\item dense layer
+\end{itemize}
+
+Training this model with 30 epochs has yielded successful results. My performance metric is IOU-- the area of intersection divided by the area of union of the bounding box and the original rectangle. Using this metric on a 8 pixel by 8 pixel image has yielded > 80\% IOU. 
+
+\begin{figure}[htbp]
+\includegraphics[scale=.25]{nn_result.png}
+\caption{The Model trained on 8 pixel by 8 pixel images. This is a downsized version of our final image samples.}
+\label{fig}
+\end{figure}
+
+
+\subsection{Black and White Converter}
+The input video will be a whiteboard with black rectangles on it. We want to represent the pixels as either black or white and nothing in between. I will either write a separate module for this or include it in the rolling buffer.
+
+\subsection{Rolling Buffer and Convolution Layer}
+I will use the rolling buffer and convolution modules from lab4b, but because the convolution filter is now 15x15 instead of 3x3, I am in the process of revising the module. I am also looking into having less convolution layers in the model because this was definitely help to decrease latency. I have not yet been able to find a successful model with less layers
+
+\subsection{Frame Buffer and Dense Layer}
+I will use the framebuffer from lab4b, and I am currently adding signposting to indicate when an entire frame is in the buffer. This is to implement the dense layer.
+
+I have saved the weights from the model (implemented via python) into a text file, and we will read from the text file to the fpga to access the weights.
+
+\subsection{Drawing Bounding Boxes and VGA}
+The output of the neural network indicates the x and y coordinates for the top left corner of the box as well as the width of the box. I will implement a module to draw this into a box, and display the video and the box via VGA.
+
+
+
+\begin{thebibliography}{00}
+\bibitem{b1} G. Eason, B. Noble, and I. N. Sneddon, ``On certain integrals of Lipschitz-Hankel type involving products of Bessel functions,'' Phil. Trans. Roy. Soc. London, vol. A247, pp. 529--551, April 1955.
+\bibitem{b2} J. Clerk Maxwell, A Treatise on Electricity and Magnetism, 3rd ed., vol. 2. Oxford: Clarendon, 1892, pp.68--73.
+\bibitem{b3} I. S. Jacobs and C. P. Bean, ``Fine particles, thin films and exchange anisotropy,'' in Magnetism, vol. III, G. T. Rado and H. Suhl, Eds. New York: Academic, 1963, pp. 271--350.
+\bibitem{b4} K. Elissa, ``Title of paper if known,'' unpublished.
+\bibitem{b5} R. Nicole, ``Title of paper with only first word capitalized,'' J. Name Stand. Abbrev., in press.
+\bibitem{b6} Y. Yorozu, M. Hirano, K. Oka, and Y. Tagawa, ``Electron spectroscopy studies on magneto-optical media and plastic substrate interface,'' IEEE Transl. J. Magn. Japan, vol. 2, pp. 740--741, August 1987 [Digests 9th Annual Conf. Magnetics Japan, p. 301, 1982].
+\bibitem{b7} M. Young, The Technical Writer's Handbook. Mill Valley, CA: University Science, 1989.
+\end{thebibliography}
+\vspace{12pt}
+
+
+\end{document}
