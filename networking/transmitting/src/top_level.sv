@@ -6,25 +6,29 @@ module top_level (
     input wire btnc,
     input wire btnr,
 
+    input wire eth_crsdv,
+    input wire [1:0] eth_rxd,
+
     output logic eth_refclk,
     output logic eth_rstn,
     output logic eth_txen,
     output logic [1:0] eth_txd,
     output logic cg, cf, ce, cd, cc, cb, ca,
     output logic [7:0] an,
-    output logic [15:15] led
+    output logic [1:0] led
 );
     logic sys_rst; // Global system reset
     assign sys_rst = btnc;
     assign eth_rstn = ~btnc;
-    assign led[15] = eth_txd[0]|eth_txd[1];
+    assign led[1] = eth_crsdv;
+    assign led[0] = eth_rxd[0] | eth_rxd[1];
 
     logic data_transmitted;
     logic [31:0] data = 32'hFEED_BEEF;
     // logic [31:0] data = 32'b11111111_11111111_11111111_11111111;
     logic [4:0] counter;
 
-    output_monit4 see_the_stuff (.clk(eth_refclk), .probe0(eth_rstn), .probe1(eth_txen), .probe2(eth_txd));
+    // output_monit4 see_the_stuff (.clk(eth_refclk), .probe0(eth_rstn), .probe1(eth_txen), .probe2(eth_txd));
 
     divider eth_clk (.clk(clk), .ethclk(eth_refclk)); // comment out for tb
 
