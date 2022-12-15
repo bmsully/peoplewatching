@@ -1,12 +1,12 @@
 `default_nettype none
 `timescale 1ns / 1ps
 
-module top_level (
-    // input wire clk_100mhz, // need to pass in 100 mhz clock in order to generate 65mhz clock
-    // input wire clk_50mhz,
-    input wire clk, // get rid of this afterwards
-    input wire btnc,
-    input wire [0:0] sw,
+module camera_feed (
+    input wire clk_65mhz,
+    input wire clk_50mhz,
+    input wire rst,
+
+    input wire ready,
 
     // Camera Input and Output
     input wire [7:0] ja, //lower 8 bits of data from camera
@@ -15,25 +15,10 @@ module top_level (
     output logic jblock, //signal for resetting camera
 
     // Data output
-    // output logic axiov,
-    // output logic [1:0] axiod,
+    output logic axiov,
+    output logic [1:0] axiod,
     output logic [15:0] led
 );
-    /* Ethernet clock */
-    logic clk_50mhz;
-
-    /* Camera and BRAM Loading Pipeline */
-    logic clk_65mhz; //65 MHz clock line
-
-    logic axiov;
-    logic [1:0] axiod;
-
-    clk_wiz_clk_wiz clk_wizard (.clk(clk), .ethclk(clk_50mhz), .camclk(clk_65mhz));
-
-    logic sys_rst; // Global system reset
-    assign sys_rst = btnc;
-    logic ready;
-    assign ready = sw[0];
 
     //output module generation signals:
     // logic [10:0] hcount;    // pixel on current line
@@ -115,7 +100,7 @@ module top_level (
         .dina(pixel_rotate),
         .ena(1'b1),
         .regcea(1'b1),
-        .rsta(sys_rst),
+        .rsta(rst),
         .douta(),
         //Read Side (50 MHz)
         .addrb(pixel_addr_out),
@@ -123,7 +108,7 @@ module top_level (
         .clkb(clk_50mhz),
         .web(1'b0),
         .enb(1'b1),
-        .rstb(sys_rst),
+        .rstb(rst),
         .regceb(1'b1),
         .doutb(frame_buff)
     );
@@ -153,16 +138,16 @@ module top_level (
 
     //vary the packed width based on signal
     //vary the unpacked width based on pipeling depth needed
-    logic [10:0] hcount_pipe [6:0]; // 7 stages
-    logic [9:0] vcount_pipe [6:0];
+    logic [10:0] hcount_pipe [3:0]; // 7 stages
+    logic [9:0] vcount_pipe [3:0];
 
     // PS1, PS2, PS3 -> same input, different output stages
     always_ff @(posedge clk_50mhz)begin
         hcount_pipe[0] <= hcount;
         vcount_pipe[0] <= vcount;
-        for (int i=1; i<7; i = i+1)begin
-        hcount_pipe[i] <= hcount_pipe[i-1];
-        vcount_pipe[i] <= vcount_pipe[i-1];
+        for (int i=1; i<4; i = i+1)begin
+            hcount_pipe[i] <= hcount_pipe[i-1];
+            vcount_pipe[i] <= vcount_pipe[i-1];
         end
     end
 
@@ -195,7 +180,7 @@ module top_level (
 
 
     always_ff @(posedge clk_50mhz) begin
-        if (sys_rst) begin
+        if (rst) begin
             vcount <= 10'b0;
             hcount <= 9'b0;
             two_cycle_count <= 3'b0;
