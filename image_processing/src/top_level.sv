@@ -193,13 +193,25 @@ module top_level(
   logic [1:0][4:0] hcount_conv7_pipe;
   logic [1:0][4:0] vcount_conv7_pipe;
 
+  logic frame_done;
+
   logic data_valid_dense;
-  logic signed [20:0] pixel_dense;
-  logic [4:0] hcount_dense;
-  logic [4:0] vcount_dense;
+  logic [4:0] hcount_pred;
+  logic [4:0] vcount_pred;
 
+  logic [15:0] pixel_box;
+  logic [4:0] hcount_box;
+  logic [4:0] vcount_box;
+  logic data_valid_box;
 
+  logic pixel_unpixelated;
+  logic [10:0] hcount_unpixelated;
+  logic [9:0] vcount_unpixelated;
+  logic data_valid_unpixelated;
 
+  logic in_mask;
+  logic [15:0] pixel_out_mask;
+  logic [9:0] addr_out_out;
 
   bw_converter bw_convert (
   .clk_in(clk_65mhz),
@@ -279,6 +291,7 @@ module top_level(
     .clka(clk_65mhz), 
     .wea(data_valid_conv7),
     .dina(pixel_conv7),
+    .dina2(),
     .ena(1'b1),
     .regcea(1'b1),
     .rsta(sys_rst),
@@ -286,6 +299,7 @@ module top_level(
     //Read Side 
     .addrb(conv_output_frame_buff_addr_out),
     .dinb(16'b0),
+    .dinb2(line_done), //1 when one line is ready to go into dense_layer
     .clkb(clk_65mhz),
     .web(1'b0),
     .enb(1'b1),
@@ -297,161 +311,60 @@ module top_level(
   dense_layer dense_layer_m (.clk_in(clk_65mhz),
   .hcount_in(hcount_conv7_pipe[1]),
   .vcount_in(vcount_conv7_pipe[1]),
-  .data_valid_in(data_valid_conv9),
+  .data_valid_in(line_done),
   .pixel_in(conv_output_frame_buff),
-  .hcount_out(hcount_dense),
-  .vcount_out(vcount_dense),
-  .data_valid_out(data_valid_dense))
-
-  // END OF PROJECT
-
-  
-  
-  //using generate/genvar, create five *Different* instances of the
-  //filter module (you'll write that).  Each filter will implement a different
-  //kernel
-  filter #(.K_SELECT(1)) filtern(
-    .clk_in(clk_65mhz),
-    .rst_in(sys_rst),
-    .data_valid_in(data_valid_rec),
-    .pixel_data_in(pixel_data_rec),
-    .hcount_in(hcount_rec),
-    .vcount_in(vcount_rec),
-    .data_valid_out(data_valid_f0),
-    .pixel_data_out(pixel_data_f0),
-    .hcount_out(hcount_f0),
-    .vcount_out(vcount_f0)
+  .hcount_out(hcount_pred),
+  .vcount_out(vcount_pred),
+  .data_valid_out(data_valid_dense)
   );
-  generate
-    genvar i;
-    for (i=0; i<6; i=i+1)begin
-      filter #(.K_SELECT(i)) filterm(
-        .clk_in(clk_65mhz),
-        .rst_in(sys_rst),
-        .data_valid_in(data_valid_f0),
-        .pixel_data_in(pixel_data_f0),
-        .hcount_in(hcount_f0),
-        .vcount_in(vcount_f0),
-        .data_valid_out(data_valid_f[i]),
-        .pixel_data_out(pixel_data_f[i]),
-        .hcount_out(hcount_f[i]),
-        .vcount_out(vcount_f[i])
-      );
-    end
-  endgenerate
 
-  //combine hor and vert signals from filters 4 and 5 for special signal:
-  logic [7:0] fcomb_r, fcomb_g, fcomb_b;
-  assign fcomb_r = (pixel_data_f[4][15:11]+pixel_data_f[5][15:11])>>1;
-  assign fcomb_g = (pixel_data_f[4][10:5]+pixel_data_f[5][10:5])>>1;
-  assign fcomb_b = (pixel_data_f[4][4:0]+pixel_data_f[5][4:0])>>1;
-
-  //based on values of sw[2:0] select which filter output gets handed on to the
-  //next module. We must make sure to route hcount, vcount, pixels and valid signal
-  // for each module.  Could have done this with a for loop as well!  Think
-  // about it!
-  always_ff @(posedge clk_65mhz)begin
-    case (sw[2:0])
-      3'b000: begin
-        hcount_fmux <= hcount_f[0];
-        vcount_fmux <= vcount_f[0];
-        pixel_data_fmux <= pixel_data_f[0];
-        data_valid_fmux <= data_valid_f[0];
-      end
-      3'b001: begin
-        hcount_fmux <= hcount_f[1];
-        vcount_fmux <= vcount_f[1];
-        pixel_data_fmux <= pixel_data_f[1];
-        data_valid_fmux <= data_valid_f[1];
-      end
-      3'b010: begin
-        hcount_fmux <= hcount_f[2];
-        vcount_fmux <= vcount_f[2];
-        pixel_data_fmux <= pixel_data_f[2];
-        data_valid_fmux <= data_valid_f[2];
-      end
-      3'b011: begin
-        hcount_fmux <= hcount_f[3];
-        vcount_fmux <= vcount_f[3];
-        pixel_data_fmux <= pixel_data_f[3];
-        data_valid_fmux <= data_valid_f[3];
-      end
-      3'b100: begin
-        hcount_fmux <= hcount_f[4];
-        vcount_fmux <= vcount_f[4];
-        pixel_data_fmux <= pixel_data_f[4];
-        data_valid_fmux <= data_valid_f[4];
-      end
-      3'b101: begin
-        hcount_fmux <= hcount_f[5];
-        vcount_fmux <= vcount_f[5];
-        pixel_data_fmux <= pixel_data_f[5];
-        data_valid_fmux <= data_valid_f[5];
-      end
-      3'b110: begin
-        hcount_fmux <= hcount_f[4];
-        vcount_fmux <= vcount_f[4];
-        pixel_data_fmux <= {fcomb_r[4:0],fcomb_g[5:0],fcomb_b[4:0]};
-        data_valid_fmux <= data_valid_f[4]&&data_valid_f[5];
-      end
-      default: begin
-        hcount_fmux <= hcount_f[0];
-        vcount_fmux <= vcount_f[0];
-        pixel_data_fmux <= 16'b11111_000000_11111;
-        data_valid_fmux <= data_valid_f[0];
-      end
-    endcase
-  end
-  //new rotate module only on 65 MHz:
-  //same as old one, but this one runs on 65 MHz with valid signal as
-  //opposed to old one that ran on 16.67 MHz.
-  rotate2 rotate_m(
+  draw_box draw_box_m (
     .clk_in(clk_65mhz),
-    .hcount_in(hcount_fmux),
-    .vcount_in(vcount_fmux),
-    .data_valid_in(data_valid_fmux),
-    .pixel_in(pixel_data_fmux),
-    .pixel_out(pixel_rotate),
-    .pixel_addr_out(pixel_addr_in),
-    .data_valid_out(valid_pixel_rotate));
+  .hcount_pred(hcount_pred),
+  .vcount_pred(vcount_pred),
+  .data_valid_in(data_valid_dense),
+  .pixel_out(pixel_box),
+  .hcount_out(hcount_box),
+  .vcount_out(vcount_box),
+  .data_valid_out(data_valid_box)
+  );
 
-  //NEW FOR LAB 04B (END)----------------------------------------------
+  unpixelate unpixelate_m(
+    .clk_in(clk_65mhz),
+    .hcount_in(hcount_box),
+    .vcount_in(vcount_box),
+    .data_valid_in(data_valid_box),
+    .hcount_array_out(hcount_unpixelated),
+    .vcount_array_out(vcount_unpixelated),
+    .data_valid_out(data_valid_unpixelated),
+    .pixel_out(pixel_unpixelated),
+  );
 
-  //Generate VGA timing signals:
-  vga vga_gen(
-    .pixel_clk_in(clk_65mhz),
-    .hcount_out(hcount),
-    .vcount_out(vcount),
-    .hsync_out(hsync),
-    .vsync_out(vsync),
-    .blank_out(blank));
-
-  //Two Clock Frame Buffer:
-  //Data written on 16.67 MHz (From camera)
-  //Data read on 65 MHz (start of video pipeline information)
-  //Latency is 2 cycles.
+  // un-pixelated mask buffer
   xilinx_true_dual_port_read_first_2_clock_ram #(
-    .RAM_WIDTH(16),
-    .RAM_DEPTH(320*240))
-    frame_buffer (
-    //Write Side (16.67MHz)
-    .addra(pixel_addr_in),
-    .clka(clk_65mhz), //NEW FOR LAB 04B
-    .wea(valid_pixel_rotate),
-    .dina(pixel_rotate),
+    .RAM_WIDTH(240 *320), //hcount,vcount   
+    .RAM_DEPTH(16)) // number of pixels in box 
+    mask_frame_buffer (
+      //write side
+    .addra(24*vcounts_unpixelated + hcounts_unpixelated),
+    .clka(clk_65mhz), 
+    .wea(data_valid_unpixelated),
+    .dina(pixel_unpixelated),
+    .dina2(1'b1), // signal indicates if pixel included in mask
     .ena(1'b1),
     .regcea(1'b1),
     .rsta(sys_rst),
     .douta(),
-    //Read Side (65 MHz)
-    .addrb(pixel_addr_out),
+    //Read Side 
+    .addrb(addr_out_out),
     .dinb(16'b0),
+    .dinb2(in_mask) // signal indicates if pixel included in mask
     .clkb(clk_65mhz),
     .web(1'b0),
     .enb(1'b1),
     .rstb(sys_rst),
     .regceb(1'b1),
-    .doutb(frame_buff)
+    .doutb(pixel_out_mask)
   );
 
   //Based on current hcount and vcount as well as
@@ -484,7 +397,6 @@ module top_level(
     hsync_pipe[0] <= hsync;
     vsync_pipe[0] <= vsync;
     blank_pipe[0] <= blank;
-    crosshair_pipe[0] <= crosshair;
     full_pixel_pipe[0] <= full_pixel;
     for (int i=1; i<7; i = i+1)begin
       hcount_pipe[i] <= hcount_pipe[i-1];
@@ -495,13 +407,29 @@ module top_level(
       hsync_pipe[i] <= hsync_pipe[i-1];
       vsync_pipe[i] <= vsync_pipe[i-1];
     end
-    for (int i=1; i<4; i = i+1)begin
-      crosshair_pipe[i] <= crosshair_pipe[i-1];
-    end
     for (int i=1; i<3; i = i+1)begin
       full_pixel_pipe[i] <= full_pixel_pipe[i-1];
     end
   end
+
+  //integrate mask
+  always_comb begin
+    if (data_valid_unpixelated == 1) begin
+      full_pixel_pipe <= pixel_out_mask
+    end
+  end
+
+
+  //Generate VGA timing signals:
+  vga vga_gen(
+    .pixel_clk_in(clk_65mhz),
+    .hcount_out(hcount),
+    .vcount_out(vcount),
+    .hsync_out(hsync),
+    .vsync_out(vsync),
+    .blank_out(blank));
+
+  
 
   mirror mirror_m(
     .clk_in(clk_65mhz),
@@ -523,118 +451,20 @@ module top_level(
     .cam_out(full_pixel)
     );
 
-  //Convert RGB of full pixel to YCrCb
-  //See lecture 04 for YCrCb discussion.
-  //Module has a 3 cycle latency
-  rgb_to_ycrcb rgbtoycrcb_m(
-    .clk_in(clk_65mhz),
-    .r_in({full_pixel[15:11], 5'b0}), //all five of red
-    .g_in({full_pixel[10:5],4'b0}), //all six of green
-    .b_in({full_pixel[4:0], 5'b0}), //all five of blue
-    .y_out(y),
-    .cr_out(cr),
-    .cb_out(cb));
-
-  //LED Display controller
-  //module not in video pipeline, provides diagnostic information
-  //about high/low mask state as well as what channel is selected:
-  //: "r:red, g:green, b:blue, y: luminance, Cr: Red Chrom, Cb: Blue Chrom
-  lab04_ssc mssc(.clk_in(clk_65mhz),
-                 .rst_in(btnc),
-                 .val_in({sw[15:10],sw[5:3]}),
-                 .cat_out({cag, caf, cae, cad, cac, cab, caa}),
-                 .an_out(an));
-
-  //Thresholder: Takes in the full RGB and YCrCb information and
-  //based on upper and lower bounds masks
-  //module has 0 cycle latency
-  threshold( .sel_in(sw[5:3]),
-     .r_in(full_pixel_pipe[2][15:12]), //TODO: needs to use pipelined signal (PS5)
-     .g_in(full_pixel_pipe[2][10:7]),  //TODO: needs to use pipelined signal (PS5)
-     .b_in(full_pixel_pipe[2][4:1]),   //TODO: needs to use pipelined signal (PS5)
-     .y_in(y[9:6]),
-     .cr_in(cr[9:6]),
-     .cb_in(cb[9:6]),
-     .lower_bound_in(sw[12:10]),
-     .upper_bound_in(sw[15:13]),
-     .mask_out(mask),
-     .channel_out(sel_channel)
-     );
-
-  //Center of Mass:
-  center_of_mass com_m(
-    .clk_in(clk_65mhz),
-    .rst_in(sys_rst),
-    .x_in(hcount_pipe[6]),  //TODO: needs to use pipelined signal! (PS3)
-    .y_in(vcount_pipe[6]), //TODO: needs to use pipelined signal! (PS3)
-    .valid_in(mask),
-    .tabulate_in((hcount==0 && vcount==0)),
-    .x_out(x_com_calc),
-    .y_out(y_com_calc),
-    .valid_out(new_com));
-
-  //update center of mass x_com, y_com based on new_com signal
-  always_ff @(posedge clk_65mhz)begin
-    if (sys_rst)begin
-      x_com <= 0;
-      y_com <= 0;
-    end if(new_com)begin
-      x_com <= x_com_calc;
-      y_com <= y_com_calc;
-    end
-  end
-
-  //Image Sprite (your implementation from Lab03):
-  //Latency 4 cycle
-  image_sprite #(
-    .WIDTH(256),
-    .HEIGHT(256))
-    com_sprite_m (
-    .pixel_clk_in(clk_65mhz),
-    .rst_in(sys_rst),
-    .hcount_in(hcount_pipe[2]),   //TODO: needs to use pipelined signal (PS1)
-    .vcount_in(vcount_pipe[2]),   //TODO: needs to use pipelined signal (PS1)
-    .x_in(x_com>128 ? x_com-128 : 0),
-    .y_in(y_com>128 ? y_com-128 : 0),
-    .pixel_out(com_sprite_pixel));
-
-  //Create Crosshair patter on center of mass:
-  //0 cycle latency
-  assign crosshair = ((vcount==y_com)||(hcount==x_com));;
-
-  //VGA MUX:
-  //latency 0 cycles (combinational-only module)
-  //module decides what to draw on the screen:
-  // sw[7:6]:
-  //    00: 444 RGB image
-  //    01: GrayScale of Selected Channel (Y, R, etc...)
-  //    10: Masked Version of Selected Channel
-  //    11: Chroma Image with Mask in 6.205 Pink
-  // sw[9:8]:
-  //    00: Nothing
-  //    01: green crosshair on center of mass
-  //    10: image sprite on top of center of mass
-  //    11: all pink screen (for VGA functionality testing)
-  vga_mux (.sel_in(sw[9:6]),
-  .camera_pixel_in({full_pixel_pipe[2][15:12],full_pixel_pipe[2][10:7],full_pixel_pipe[2][4:1]}), //TODO: needs to use pipelined signal(PS5)
-  .camera_y_in(y[9:6]),
-  .channel_in(sel_channel),
-  .thresholded_pixel_in(mask),
-  .crosshair_in(crosshair_pipe[3]), //TODO: needs to use pipelined signal (PS4)
-  .com_sprite_pixel_in(com_sprite_pixel),
-  .pixel_out(mux_pixel)
-  );
-
-  //blankig logic.
+    //blankig logic.
   //latency 1 cycle
   always_ff @(posedge clk_65mhz)begin
-    vga_r <= ~blank?mux_pixel[11:8]:0; //TODO: needs to use pipelined signal (PS6)
-    vga_g <= ~blank?mux_pixel[7:4]:0;  //TODO: needs to use pipelined signal (PS6)
-    vga_b <= ~blank?mux_pixel[3:0]:0;  //TODO: needs to use pipelined signal (PS6)
+    vga_r <= ~blank?full_pixel[11:8]:0; //TODO: needs to use pipelined signal (PS6)
+    vga_g <= ~blank?full_pixel[7:4]:0;  //TODO: needs to use pipelined signal (PS6)
+    vga_b <= ~blank?full_pixel[3:0]:0;  //TODO: needs to use pipelined signal (PS6)
   end
 
   assign vga_hs = ~hsync;  //TODO: needs to use pipelined signal (PS7)
   assign vga_vs = ~vsync;  //TODO: needs to use pipelined signal (PS7)
+
+  // END OF PROJECT
+
+
 
 endmodule
 
