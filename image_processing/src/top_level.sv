@@ -126,24 +126,6 @@ module top_level(
   logic [9:0] vcount_rec; //vcount from recovery module
   logic  data_valid_rec; //single-cycle (65 MHz) valid data from recovery module
 
-  logic [10:0] hcount_f0;  //hcount from filter modules
-  logic [9:0] vcount_f0; //vcount from filter modules
-  logic [15:0] pixel_data_f0; //pixel data from filter modules
-  logic data_valid_f0; //valid signals for filter modules
-
-  logic [10:0] hcount_f [5:0];  //hcount from filter modules
-  logic [9:0] vcount_f [5:0]; //vcount from filter modules
-  logic [15:0] pixel_data_f [5:0]; //pixel data from filter modules
-  logic data_valid_f [5:0]; //valid signals for filter modules
-
-  logic [10:0] hcount_fmux; //hcount from filter mux
-  logic [9:0]  vcount_fmux; //vcount from filter mux
-  logic [15:0] pixel_data_fmux; //pixel data from filter mux
-  logic data_valid_fmux; //data valid from filter mux
-
-
-
-
   //recovers hcount and vcount from camera module:
   //generates data and a valid signal on 65 MHz
   recover recover_m (
