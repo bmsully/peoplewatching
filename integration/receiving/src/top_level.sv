@@ -1,0 +1,130 @@
+`default_nettype none
+`timescale 1ns / 1ps
+
+module top_level (
+    input wire clk, //clock @ 100 mhz
+    input wire btnc,
+    input wire eth_crsdv,
+    input wire [1:0] eth_rxd,
+
+    output logic eth_txen,
+    output logic [1:0] eth_txd,
+
+    output logic eth_refclk,
+    output logic eth_rstn,
+    output logic [15:0] led,
+    output logic ca, cb, cc, cd, ce, cf, cg,
+    output logic [7:0] an
+
+);
+    logic sys_rst; // Global system reset
+    assign sys_rst = btnc;
+    assign eth_rstn = ~btnc; // eth_rstn resets on low signal
+
+    assign eth_txd = eth_rxd;
+    assign eth_txen = eth_crsdv;
+
+    // input_monitor receivingwila (.clk(eth_refclk), .probe0(eth_rstn), .probe1(eth_crsdv), .probe2(eth_rxd));
+
+    divider eth_clk (.clk(clk), .ethclk(eth_refclk)); // comment out for tb
+    // logic count_bit;
+    // always_ff @(posedge clk) begin
+    //     if (count_bit) begin
+    //         eth_refclk <= ~eth_refclk;
+    //         count_bit <= 1'b0;
+    //     end else begin
+    //         count_bit <= 1'b1;
+    //     end
+    // end
+
+    // ############## ETHERNET RECEIVING DE-ENCAPSULATION ##############
+    // Data Validity Carriers
+    logic eth_axiov, bitorder_axiov, firewall_axiov, done, kill, past_done, aggregate_axiov;
+    // Data Carriers
+    logic [1:0] eth_axiod, bitorder_axiod, firewall_axiod;
+    logic [31:0] aggregate_axiod;
+
+    // assign eth_refclk = clk;
+
+    logic eth_crsdv_pipe;
+    logic [1:0] eth_rxd_pipe;
+    always_ff @(posedge eth_refclk) begin
+        eth_crsdv_pipe <= eth_crsdv;
+        eth_rxd_pipe <= eth_rxd;
+    end
+
+    rether ethernet_in (
+        .clk(eth_refclk), // comment out for tb
+        // .clk(clk), // uncomment for tb
+        .rst(sys_rst),
+        .crsdv(eth_crsdv_pipe),
+        .rxd(eth_rxd_pipe),
+        .axiov(eth_axiov),
+        .axiod(eth_axiod)
+        );
+
+    bitorder bitorder_in (
+        .clk(eth_refclk), // comment out for tb
+        // .clk(clk), // uncomment for tb
+        .rst(sys_rst), 
+        .axiiv(eth_axiov), 
+        .axiid(eth_axiod), 
+        .axiov(bitorder_axiov), 
+        .axiod(bitorder_axiod)
+        );
+
+    firewall check_dest (
+        .clk(eth_refclk), // comment out for tb
+        // .clk(clk), // uncomment for tb
+        .rst(sys_rst),
+        .axiiv(bitorder_axiov),
+        .axiid(bitorder_axiod),
+        .axiov(firewall_axiov),
+        .axiod(firewall_axiod)
+    );
+
+    cksum checksum (
+        .clk(eth_refclk), // comment out for tb
+        // .clk(clk), // uncomment for tb
+        .rst(sys_rst),
+        .axiiv(eth_axiov),
+        .axiid(eth_axiod),
+        .done(done),
+        .kill(kill)
+    );
+
+    aggregate get_data (
+        .clk(eth_refclk), // comment out for tb
+        // .clk(clk), // uncomment for tb
+        .rst(sys_rst),
+        .axiiv(firewall_axiov),
+        .axiid(firewall_axiod),
+        .axiov(aggregate_axiov),
+        .axiod(aggregate_axiod)
+    );
+
+    seven_segment_controller led_display (
+        .clk_in(eth_refclk), // comment out for tb
+        // .clk_in(clk), // uncomment for tb
+        .rst_in(sys_rst),
+        .val_in(aggregate_axiod),
+        .cat_out({cg, cf, ce, cd, cc, cb, ca}),
+        .an_out(an)
+    );
+
+    always_ff @(posedge eth_refclk) begin // comment out for tb
+        // always_ff @(posedge clk) begin // uncomment for tb
+        led[15] <= kill;
+        led[14] <= done;
+        if (sys_rst == 1'b1) begin
+            led[13:0] <= 14'b0;
+        end
+        if (past_done == 1'b0 && done == 1'b1 && firewall_axiov == 1'b1)begin
+            led[13:0] <= led[13:0] + 1;
+        end
+        past_done <= done;
+    end
+
+endmodule
+
+`default_nettype wire
